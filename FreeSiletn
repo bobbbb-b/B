@@ -1,0 +1,144 @@
+-- // Services
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+
+-- // Vars
+local Heartbeat = RunService.Heartbeat
+local LocalPlayer = Players.LocalPlayer
+local CurrentCamera = Workspace.CurrentCamera
+
+-- // Silent Aim Vars
+getgenv().Aiming = {
+    Enabled = true,
+
+    ShowFOV = true,
+    FOV = 119,
+    FOVSides = 300,
+    FOVColour = Color3.fromRGB(0, 147, 255),
+
+    VisibleCheck = true,
+    
+    HitChance = 110,
+
+    Selected = nil,
+    SelectedPart = nil,
+
+    TargetPart = {"Head", "UpperTorso", "HumanoidRootPart", "LowerTorso"},
+
+    Ignored = {
+        Teams = {
+            {
+                Team = LocalPlayer.Team,
+                TeamColor = LocalPlayer.TeamColor,
+            },
+        },
+        Players = {
+            LocalPlayer,
+            91318356
+        }
+    }
+}
+local Aiming = getgenv().Aiming
+
+-- // Create circle
+local circle = Drawing.new("Circle")
+circle.Transparency = 1
+circle.Thickness = 2
+circle.Color = Aiming.FOVColour
+circle.Filled = false
+Aiming.FOVCircle = circle
+
+-- // Update
+function Aiming.UpdateFOV()
+    -- // Make sure the circle exists
+    if not (circle) then
+        return
+    end
+
+    -- // Set Circle Properties
+    circle.Visible = Aiming.ShowFOV
+    circle.Radius = (Aiming.FOV * 3)
+    circle.Position = Vector2.new(CurrentCamera.ViewportSize.X / 2, CurrentCamera.ViewportSize.Y / 2)
+    circle.NumSides = Aiming.FOVSides
+    circle.Color = Aiming.FOVColour
+
+    -- // Return circle
+    return circle
+end
+
+-- // Silent Aim Function
+function Aiming.SilentAimFunction(plr)
+    -- // Get needed values
+    local Char = plr.Character
+    local Humanoid = Char:WaitForChild("Humanoid", 1.5)
+    local HumanoidRootPart = Char:WaitForChild("HumanoidRootPart", 1.5)
+    
+    -- // Check if player is valid
+    if (not Char or not Humanoid or not HumanoidRootPart or not Char:IsDescendantOf(Workspace)) then
+        return
+    end
+
+    -- // Check if player is alive
+    if (Humanoid.Health <= 0) then
+        return
+    end
+
+    -- // Get target part
+    local TargetPart = nil
+    for i = 1, #Aiming.TargetPart do
+        local Part = Char:FindFirstChild(Aiming.TargetPart[i])
+        if (Part) then
+            TargetPart = Part
+            break
+        end
+    end
+
+    -- // Check if target part exists
+    if (not TargetPart) then
+        return
+    end
+
+    -- // Get target position
+    local TargetPosition, OnScreen = CurrentCamera:WorldToViewportPoint(TargetPart.Position)
+
+    -- // Check if target is visible on the screen
+    if (Aiming.VisibleCheck and not OnScreen) then
+        return
+    end
+
+    -- // Get silent aim chance
+    local SilentAimChance = Aiming.HitChance
+
+    -- // Generate random number for silent aim
+    local SilentAimValue = math.random(0, 100)
+
+    -- // Check if silent aim succeeds
+    if (SilentAimValue <= SilentAimChance) then
+        -- // Set the selected player and part
+        Aiming.Selected = plr
+        Aiming.SelectedPart = TargetPart
+    end
+end
+
+-- // Loop
+local SilentAimLoop = Heartbeat:Connect(function()
+    -- // Check if silent aim is disabled
+    if (not Aiming.Enabled) then
+        SilentAimLoop:Disconnect()
+        return
+    end
+
+    -- // Get all players
+    local Players = Players:GetPlayers()
+
+    -- // Silent aim loop
+    for i = 1, #Players do
+        local Player = Players[i]
+        
+        -- // Check if player is valid
+        if (Player ~= LocalPlayer and Player.Team ~= LocalPlayer.Team and Player.Character and Player.Character:FindFirstChild("Humanoid") and Player.Character:FindFirstChild("HumanoidRootPart")) then
+            Aiming.SilentAimFunction(Player)
+        end
+    end
+end)
